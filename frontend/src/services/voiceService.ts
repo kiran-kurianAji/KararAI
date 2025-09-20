@@ -77,14 +77,15 @@ class VoiceService {
 
   // Get current audio playing status
   isAudioPlaying(): boolean {
-    return (this.currentAudio && !this.currentAudio.paused) || speechSynthesis.speaking;
+    const speechSynthesisActive = 'speechSynthesis' in window && speechSynthesis.speaking;
+    return (this.currentAudio && !this.currentAudio.paused) || speechSynthesisActive;
   }
 
   // Check if browser supports voice recording
   isSupported(): boolean {
     return !!(navigator.mediaDevices && 
-              navigator.mediaDevices.getUserMedia && 
-              window.MediaRecorder);
+              'getUserMedia' in navigator.mediaDevices && 
+              'MediaRecorder' in window);
   }
 
   // Request microphone permission
@@ -206,7 +207,7 @@ class VoiceService {
       
       // Fallback: try Web Speech API for English
       if (this.config.inputLanguage === 'en' && 'webkitSpeechRecognition' in window) {
-        return this.fallbackWebSpeechAPI(audioBlob);
+        return this.fallbackWebSpeechAPI();
       }
       
       throw new Error('Speech recognition failed. Please try typing your message.');
@@ -214,7 +215,7 @@ class VoiceService {
   }
 
   // Fallback Web Speech API for English (Chrome/Edge)
-  private async fallbackWebSpeechAPI(_audioBlob: Blob): Promise<TranscriptionResult> {
+  private async fallbackWebSpeechAPI(): Promise<TranscriptionResult> {
     return new Promise((_resolve, reject) => {
       // This is a simplified fallback - in practice, Web Speech API 
       // requires real-time audio stream, not recorded blob
