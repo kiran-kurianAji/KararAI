@@ -29,6 +29,28 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface Employer {
+  id: string;
+  name: string;
+  company?: string;
+  phone?: string;
+  email?: string;
+  businessId: string; // GST or business registration
+  businessType: string;
+  location: {
+    state: string;
+    city: string;
+    pincode: string;
+    address: string;
+  };
+  isVerified: boolean;
+  rating: number;
+  postedJobs: number;
+  completedProjects: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface LoginCredentials {
   phoneOrEmail: string;
   password: string;
@@ -117,11 +139,92 @@ export interface Contract {
 
 export interface ContractApplication {
   id: string;
-  contractId: string;
+  jobId: string;
   workerId: string;
-  status: 'applied' | 'accepted' | 'rejected';
+  workerName: string;
+  status: 'applied' | 'accepted' | 'rejected' | 'contract_generated';
   appliedAt: Date;
   message?: string;
+  proposedWage?: number;
+  originalWage: number;
+  proposedMessage?: string;
+  employerResponse?: string;
+  contractId_generated?: string;
+  workerProfile: {
+    experience: string;
+    skills: string[];
+    rating: number;
+    completedJobs: number;
+  };
+}
+
+export interface JobPost {
+  id: string;
+  employerId: string;
+  title: string;
+  description: string;
+  category: string;
+  workDetails: {
+    location: {
+      address: string;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+    startDate: Date;
+    endDate?: Date;
+    duration: string;
+    workingHours: string;
+    urgency: 'low' | 'medium' | 'high';
+  };
+  payment: {
+    rateType: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'fixed';
+    rate: number;
+    currency: 'INR';
+    paymentTerms: string;
+    negotiable: boolean;
+  };
+  requirements: {
+    skills: string[];
+    experience: number;
+    tools?: string[];
+    certifications?: string[];
+  };
+  status: 'draft' | 'published' | 'closed' | 'filled';
+  applications: ContractApplication[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ContractDocument {
+  id: string;
+  jobId: string;
+  employerId: string;
+  workerId: string;
+  workerName: string;
+  jobTitle: string;
+  terms: {
+    hourlyRate: number;
+    totalHours: number;
+    startDate: Date;
+    endDate: Date;
+    description: string;
+    paymentTerms: string;
+    cancellationPolicy: string;
+    responsibilities?: string[];
+    deliverables?: string[];
+    penalties?: string;
+    bonusTerms?: string;
+  };
+  status: 'draft' | 'pending_signatures' | 'signed' | 'active' | 'completed' | 'cancelled';
+  employerSigned: boolean;
+  employerSignedAt?: Date;
+  workerSigned: boolean;
+  workerSignedAt?: Date;
+  employerSignature?: string;
+  workerSignature?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Payment and Ledger Types

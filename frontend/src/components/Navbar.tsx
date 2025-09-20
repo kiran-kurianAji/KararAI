@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, User, Home, Menu, X, Briefcase, List } from 'lucide-react';
+import { LogOut, User, Home, Menu, X, Briefcase, List, Building2 } from 'lucide-react';
 import { useState } from 'react';
 import type { User as UserType } from '../types';
 
@@ -20,6 +20,7 @@ const Navbar = ({ user, onLogout }: NavbarProps) => {
     { path: '/home', label: 'Home', icon: Home },
     { path: '/active-contracts', label: 'Active Contracts', icon: Briefcase },
     { path: '/job-listings', label: 'Job Listings', icon: List },
+    { path: '/employer-portal', label: 'Employer Portal', icon: Building2 },
   ];
 
   return (

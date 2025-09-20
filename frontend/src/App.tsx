@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import ContractDetails from './pages/ContractDetails';
 import JobListings from './pages/JobListings';
+import EmployerPortal from './pages/EmployerPortal';
 
 // Import components
 import Navbar from './components/Navbar';
@@ -64,6 +65,30 @@ const App = () => {
           <Route 
             path="/active-contracts" 
             element={isAuthenticated ? <Home user={user!} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/employer-portal" 
+            element={isAuthenticated ? <EmployerPortal employer={{ 
+              id: '1', 
+              name: 'Demo Employer', 
+              email: 'employer@example.com', 
+              phone: '+1234567890',
+              company: 'Demo Company',
+              businessId: 'GST123456789',
+              businessType: 'Technology Services',
+              isVerified: true,
+              rating: 4.5,
+              postedJobs: 5,
+              completedProjects: 3,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              location: { 
+                city: 'Demo City', 
+                state: 'Demo State',
+                pincode: '12345',
+                address: '123 Demo Street'
+              }
+            }} /> : <Navigate to="/login" />} 
           />
           
           {/* Default redirect */}
