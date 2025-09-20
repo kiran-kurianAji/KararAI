@@ -84,7 +84,7 @@ class VoiceService {
   isSupported(): boolean {
     return !!(navigator.mediaDevices && 
               navigator.mediaDevices.getUserMedia && 
-              typeof MediaRecorder !== 'undefined');
+              window.MediaRecorder);
   }
 
   // Request microphone permission
