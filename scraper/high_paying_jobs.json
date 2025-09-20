@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Software Developer",
+    "location": "Infopark, Kochi",
+    "salary": "₹35,000 - ₹50,000",
+    "link": "https://www.olx.in/item/dev-1"
+  },
+  {
+    "title": "Driver for Private Company",
+    "location": "Palarivattom, Kochi",
+    "salary": "₹20,000 - ₹25,000",
+    "link": "https://www.olx.in/item/driver-1"
+  },
+  {
+    "title": "Marketing Executive",
+    "location": "Edapally, Kochi",
+    "salary": "₹22,000 - ₹28,000",
+    "link": "https://www.olx.in/item/marketing-1"
+  },
+  {
+    "title": "Teacher for Tuition Centre",
+    "location": "Kaloor, Kochi",
+    "salary": "₹25,000 - ₹30,000",
+    "link": "https://www.olx.in/item/teacher-1"
+  }
+]
