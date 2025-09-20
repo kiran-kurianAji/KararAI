@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { 
   MapPin, Clock, IndianRupee, User, Star, AlertCircle, CheckCircle, Plus, Eye,
   Upload, Camera, FileText, DollarSign, Target, Clock4, Save, X, Receipt, 
-  TrendingUp, Calendar, PlusCircle
+  TrendingUp, PlusCircle, Brain
 } from 'lucide-react';
 import type { Contract, User as UserType } from '../types';
+import JobAnalysisModal from './JobAnalysisModal';
 
 interface ContractListProps {
   contracts: Contract[];
@@ -17,6 +18,8 @@ interface ContractListProps {
 
 const ContractList = ({ contracts, type, isLoading, onApply, onViewDetails, user }: ContractListProps) => {
   const [expandedContract, setExpandedContract] = useState<string | null>(null);
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
+  const [selectedContractForAnalysis, setSelectedContractForAnalysis] = useState<Contract | null>(null);
   const [workLog, setWorkLog] = useState<{[key: string]: {
     hoursToday: number;
     progressNotes: string;
@@ -99,7 +102,12 @@ const ContractList = ({ contracts, type, isLoading, onApply, onViewDetails, user
     setExpandedContract(expandedContract === contractId ? null : contractId);
   };
 
-  const updateWorkLog = (contractId: string, field: string, value: any) => {
+  const handleAnalyzeWithAI = (contract: Contract) => {
+    setSelectedContractForAnalysis(contract);
+    setAnalysisModalOpen(true);
+  };
+
+  const updateWorkLog = (contractId: string, field: string, value: string | number | Array<{description: string; amount: number; category: string}> | File[]) => {
     setWorkLog(prev => ({
       ...prev,
       [contractId]: {
@@ -410,13 +418,23 @@ const ContractList = ({ contracts, type, isLoading, onApply, onViewDetails, user
                   </button>
                   
                   {type === 'suggested' && user.isVerified && (
-                    <button
-                      onClick={() => onApply(contract.id)}
-                      className="flex items-center px-3 py-1 bg-red-700 text-white text-xs font-medium rounded hover:bg-red-800 transition-colors"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Apply
-                    </button>
+                    <>
+                      <button
+                        onClick={() => onApply(contract.id)}
+                        className="flex items-center px-3 py-1 bg-red-700 text-white text-xs font-medium rounded hover:bg-red-800 transition-colors"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Apply
+                      </button>
+                      
+                      <button
+                        onClick={() => handleAnalyzeWithAI(contract)}
+                        className="flex items-center px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition-colors ml-2"
+                      >
+                        <Brain className="w-3 h-3 mr-1" />
+                        Analyze with AI
+                      </button>
+                    </>
                   )}
                   
                   {type === 'current' && (
@@ -657,6 +675,14 @@ const ContractList = ({ contracts, type, isLoading, onApply, onViewDetails, user
                           <Eye className="w-3 h-3 mr-1" />
                           View Details
                         </button>
+                        
+                        <button
+                          onClick={() => handleAnalyzeWithAI(contract)}
+                          className="px-3 py-2 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition-colors"
+                        >
+                          <Brain className="w-3 h-3 mr-1" />
+                          Analyze with AI
+                        </button>
                       </div>
                     </div>
                   )}
@@ -666,6 +692,19 @@ const ContractList = ({ contracts, type, isLoading, onApply, onViewDetails, user
           </div>
         ))}
       </div>
+      
+      {/* AI Analysis Modal */}
+      {analysisModalOpen && selectedContractForAnalysis && user && (
+        <JobAnalysisModal 
+          contract={selectedContractForAnalysis}
+          user={user}
+          isOpen={analysisModalOpen}
+          onClose={() => {
+            setAnalysisModalOpen(false);
+            setSelectedContractForAnalysis(null);
+          }}
+        />
+      )}
     </div>
   );
 };
