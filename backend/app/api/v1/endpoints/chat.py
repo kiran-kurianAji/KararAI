@@ -20,8 +20,16 @@ async def send_chat_message(
 ):
     """Send a chat message to AI assistant."""
     
+    print(f"=== CHAT DEBUG ===")
+    print(f"Received message: {message}")
+    print(f"Current user: {current_user.id if current_user else 'None'}")
+    print(f"Message sender_id: {message.sender_id}")
+    print(f"Message content: {message.message}")
+    print(f"==================")
+    
     # Ensure the message is from the current user
     if message.sender_id != current_user.id:
+        print(f"ERROR: Sender ID mismatch. Message sender: {message.sender_id}, Current user: {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot send message on behalf of another user"
@@ -41,7 +49,19 @@ async def send_chat_message(
     db.refresh(user_message)
     
     # Generate AI response
-    ai_response_text = await generate_ai_response(message.message, current_user, message.contract_id, db)
+    user_data = {
+        "name": current_user.name,
+        "area_of_expertise": current_user.area_of_expertise,
+        "location": current_user.location,
+        "preferences": current_user.preferences,
+        "experience": current_user.experience
+    }
+    
+    try:
+        ai_response_text = await gemini_service.general_assistance(user_data, message.message)
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        ai_response_text = "I'm having trouble connecting to the AI service right now. Please try again in a moment."
     
     # Save AI response
     ai_message = ChatMessage(
@@ -201,31 +221,24 @@ async def generate_ai_response(
             return await gemini_service.general_assistance(user_data, user_message)
             
     except Exception as e:
-        # Fallback response
-        return f"""I'm here to help you with your work-related questions! I can assist you with:
-
-📋 **Job Search & Opportunities**
-- Finding suitable jobs based on your skills
-- Job recommendations in your area
-- Understanding job requirements
-
-⚖️ **Worker Rights & Legal Information**
-- Minimum wage laws in your state
-- Government welfare schemes (MGNREGA, ESI, PF)
-- Labor law protections
-- How to file complaints
-
-📄 **Contract Analysis**
-- Understanding job terms and conditions
-- Fair wage assessment
-- Identifying contract red flags
-
-💼 **Work Management**
-- Logging work hours
-- Payment tracking
-- Career guidance
-
-What would you like to know more about?"""
+        print(f"Gemini AI Error: {e}")
+        # Simple fallback responses instead of generic error
+        message_lower = user_message.lower()
+        
+        if any(word in message_lower for word in ['hello', 'hi', 'hey', 'good morning', 'good evening']):
+            return f"Hello {user.name}! 👋 I'm your AI assistant. I can help you with job search, understanding your rights, contract analysis, and work logging. What would you like to know about?"
+        
+        elif any(word in message_lower for word in ['job', 'work', 'employment']):
+            return f"I can help you find suitable jobs! Based on your expertise in {', '.join(user.area_of_expertise)}, I can recommend opportunities in your area. Would you like me to help you search for jobs or review contract terms?"
+        
+        elif any(word in message_lower for word in ['payment', 'money', 'salary', 'wage']):
+            return f"For payment tracking and wage information:\n\n• Check if jobs meet minimum wage requirements\n• Track your payments and work hours\n• Understand your payment rights\n• Get help with payment disputes\n\nWhat specific payment question do you have?"
+        
+        elif any(word in message_lower for word in ['rights', 'legal', 'law']):
+            return f"Your worker rights include:\n\n• Fair wages and timely payments\n• Safe working conditions\n• Right to file complaints\n• Access to government schemes\n\nI can provide specific information about labor laws in {user.location.get('state', 'your state')}. What would you like to know?"
+        
+        else:
+            return f"Thanks for your message! I'm here to help with:\n\n🔍 **Job Search** - Find work opportunities\n⚖️ **Worker Rights** - Know your legal protections\n💰 **Payment Tracking** - Monitor wages and payments\n📋 **Contract Help** - Understand job terms\n\nWhat can I assist you with today?"
 
 @router.post("/mark-read", response_model=ApiResponse)
 async def mark_messages_read(
