@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MapPin, Calendar, Star, ExternalLink } from 'lucide-react';
+import { Search, MapPin, Calendar, Star, ExternalLink } from 'lucide-react';
 import type { User, SuggestedJob } from '../types';
 
 interface JobListingsProps {
@@ -8,7 +7,6 @@ interface JobListingsProps {
 }
 
 const JobListings = ({ user }: JobListingsProps) => {
-  const navigate = useNavigate();
   const [suggestedJobs, setSuggestedJobs] = useState<SuggestedJob[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<SuggestedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);

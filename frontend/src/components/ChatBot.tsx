@@ -14,7 +14,7 @@ interface ChatBotProps {
   onClose?: () => void;
 }
 
-const ChatBot = ({ userId, contractId, className = '', sessionType = 'general', onClose }: ChatBotProps) => {
+const ChatBot = ({ userId, contractId, className = '', sessionType = 'general' }: ChatBotProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
