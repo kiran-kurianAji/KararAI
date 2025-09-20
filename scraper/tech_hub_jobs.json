@@ -1,0 +1,20 @@
+[
+  {
+    "title": "Data Entry Operator",
+    "location": "Kakkanad, Kochi",
+    "salary": "₹12,000 - ₹16,000",
+    "link": "https://www.olx.in/item/data-1"
+  },
+  {
+    "title": "Software Developer",
+    "location": "Infopark, Kochi",
+    "salary": "₹35,000 - ₹50,000",
+    "link": "https://www.olx.in/item/dev-1"
+  },
+  {
+    "title": "Telecaller",
+    "location": "Kakkanad, Kochi",
+    "salary": "₹16,000 - ₹20,000",
+    "link": "https://www.olx.in/item/tele-1"
+  }
+]
