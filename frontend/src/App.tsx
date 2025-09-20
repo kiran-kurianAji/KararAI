@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from './types';
+import { getCurrentUser, authAPI, removeAuthToken } from './services/api';
 
 // Import pages
 import Login from './pages/Login';
@@ -17,17 +18,60 @@ import Navbar from './components/Navbar';
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock authentication functions
+  // Check for existing authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const storedUser = getCurrentUser();
+        const token = localStorage.getItem('authToken');
+        
+        if (storedUser && token) {
+          // Verify token is still valid by calling /auth/me
+          try {
+            const response = await authAPI.getCurrentUser();
+            setUser(response.data.data.user);
+            setIsAuthenticated(true);
+          } catch (authError) {
+            // Token is invalid, clear storage
+            console.warn('Token validation failed:', authError);
+            removeAuthToken();
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Authentication functions
   const handleLogin = (userData: User) => {
     setUser(userData);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    removeAuthToken();
     setUser(null);
     setIsAuthenticated(false);
   };
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-700"></div>
+          <span className="text-gray-600">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
