@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import type { User, LoginCredentials, FormError } from '../types';
+import { authAPI, setAuthToken, setCurrentUser } from '../services/api';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -49,42 +50,33 @@ const Login = ({ onLogin }: LoginProps) => {
     setIsSubmitting(true);
 
     try {
-      // Mock authentication - in real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
-      
-      // Mock successful login
-      const mockUser: User = {
-        id: '1',
-        name: 'John Doe',
-        phone: '+91 9876543210',
-        email: 'john@example.com',
-        digitalId: 'AADHAAR-123456789012',
-        areaOfExpertise: ['Construction', 'Carpentry'],
-        location: {
-          state: 'Karnataka',
-          city: 'Bangalore',
-          pincode: '560001'
-        },
-        preferences: {
-          maxTravelDistance: 25,
-          preferredWorkingHours: ['Morning (6 AM - 12 PM)', 'Afternoon (12 PM - 6 PM)'],
-          minimumWage: 500
-        },
-        experience: {
-          yearsOfExperience: 5,
-          previousJobs: ['House Construction', 'Furniture Making'],
-          skills: ['Carpentry', 'Masonry', 'Electrical basics']
-        },
-        isVerified: true,
-        rating: 4.5,
-        completedJobs: 23,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      // Call the backend API
+      const response = await authAPI.login({
+        phone_or_email: formData.phoneOrEmail,
+        password: formData.password
+      });
 
-      onLogin(mockUser);
-    } catch (error) {
-      setErrors([{ field: 'general', message: 'Login failed. Please try again.' }]);
+      const { access_token, user, user_type } = response.data;
+
+      // Store token and user data
+      setAuthToken(access_token);
+      setCurrentUser({ ...user, user_type });
+
+      // Call the parent component's onLogin function
+      onLogin(user);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Login failed. Please try again.';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Invalid phone/email or password.';
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setErrors([{ field: 'general', message: errorMessage }]);
     } finally {
       setIsSubmitting(false);
     }
@@ -228,11 +220,23 @@ const Login = ({ onLogin }: LoginProps) => {
 
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-blue-50 rounded-md">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</h4>
-            <p className="text-xs text-blue-700">
-              <strong>Phone/Email:</strong> demo@example.com<br />
+            <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Account:</h4>
+            <p className="text-xs text-blue-700 mb-3">
+              <strong>Email:</strong> demo@example.com<br />
               <strong>Password:</strong> password123
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  phoneOrEmail: 'demo@example.com',
+                  password: 'password123'
+                });
+              }}
+              className="w-full px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Use Demo Account
+            </button>
           </div>
         </form>
       </div>
