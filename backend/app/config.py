@@ -5,7 +5,7 @@ from pydantic import Field
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "sqlite:///./fairwork.db"
+    database_url: str = "sqlite:///./data/kararai.db"
     
     # JWT Settings
     secret_key: str = "your-secret-key-change-in-production"
