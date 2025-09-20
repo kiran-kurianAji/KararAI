@@ -11,7 +11,7 @@ class GeminiAIService:
     """Service for Gemini AI integration for worker assistance."""
     
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         
         # System prompts for different types of assistance
         self.job_recommendation_prompt = """
@@ -136,10 +136,10 @@ class GeminiAIService:
             """
             
             full_prompt = f"""
-            You are an AI assistant for AI FairWork, a platform helping contract and informal workers in India.
+            You are an AI assistant for AI FairWork, helping contract and informal workers in India.
             
-            You can help with:
-            1. Finding suitable jobs and work opportunities
+            You help with:
+            1. Finding jobs and work opportunities
             2. Understanding worker rights and labor laws
             3. Information about government welfare schemes
             4. Work logging and payment tracking guidance
@@ -149,16 +149,15 @@ class GeminiAIService:
             
             Worker's message: {chat_message}
             
-            Provide helpful, encouraging, and practical advice. Be supportive and empowering.
-            If the query is about specific jobs, suggest they use job search features.
-            If it's about rights or laws, provide relevant information for their location.
+            Provide helpful, encouraging, and practical advice. Keep responses concise and friendly.
             """
             
             response = self.model.generate_content(full_prompt)
             return response.text
             
         except Exception as e:
-            return "I apologize, but I'm having trouble processing your request right now. Please try again later."
+            print(f"Gemini Error Details: {e}")
+            raise e
     
     async def analyze_contract_terms(self, contract_data: Dict[str, Any], user_data: Dict[str, Any]) -> str:
         """Analyze contract terms and provide worker-friendly explanation."""

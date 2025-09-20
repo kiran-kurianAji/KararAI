@@ -10,5 +10,11 @@ pydantic
 pydantic-settings
 python-dotenv
 google-generativeai
-httpx
+httpx>=0.25.0
 aiosqlite
+# Voice processing dependencies (Google-only, lightweight)
+deep-translator
+gtts
+scipy
+numpy
+SpeechRecognition
