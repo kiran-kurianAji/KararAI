@@ -580,21 +580,34 @@ const stateLanguageMapping: { [key: string]: string } = {
 export const locationService = {
   async detectLocation(): Promise<{ state: string; language: string } | null> {
     try {
-      // First try browser geolocation
+      // Always try fresh browser geolocation on every call
       if (navigator.geolocation) {
         return new Promise((resolve) => {
           navigator.geolocation.getCurrentPosition(
             async (position) => {
               try {
-                // Use reverse geocoding to get location details
+                // Use reverse geocoding to get location details with fresh request
+                const timestamp = Date.now(); // Add timestamp to prevent caching
                 const response = await fetch(
-                  `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
+                  `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en&t=${timestamp}`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      'Cache-Control': 'no-cache',
+                      'Pragma': 'no-cache'
+                    }
+                  }
                 );
                 const data = await response.json();
                 const state = data.principalSubdivision?.toLowerCase() || '';
                 const language = stateLanguageMapping[state] || 'en';
                 
-                console.log('Location detected:', { state: data.principalSubdivision, language });
+                console.log('Fresh location detected:', { 
+                  state: data.principalSubdivision, 
+                  language,
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude
+                });
                 resolve({ state: data.principalSubdivision || '', language });
               } catch (error) {
                 console.error('Reverse geocoding failed:', error);
@@ -605,7 +618,11 @@ export const locationService = {
               console.error('Geolocation failed:', error);
               resolve(null);
             },
-            { timeout: 10000 }
+            { 
+              timeout: 10000,
+              maximumAge: 0, // Don't use cached position
+              enableHighAccuracy: true // Request high accuracy
+            }
           );
         });
       }

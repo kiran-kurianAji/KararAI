@@ -7,6 +7,7 @@ import LanguageDetectionNotification from '../components/LanguageDetectionNotifi
 interface LanguageContextType {
   currentLanguage: string;
   setLanguage: (language: string) => void;
+  resetToAutoDetection: () => void;
   isDetecting: boolean;
   detectedLocation: string | null;
   availableLanguages: Array<{
@@ -51,7 +52,46 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const setLanguage = (language: string) => {
     setCurrentLanguage(language);
     i18n.changeLanguage(language);
+    
+    // Save user's manual selection with a flag to indicate it was user-chosen
     localStorage.setItem('selectedLanguage', language);
+    localStorage.setItem('isManualSelection', 'true');
+    
+    console.log(`Language manually set to: ${language}`);
+  };
+
+  const resetToAutoDetection = async () => {
+    // Clear manual selection flag to allow auto-detection
+    localStorage.removeItem('isManualSelection');
+    localStorage.removeItem('selectedLanguage');
+    
+    // Trigger fresh location detection
+    setIsDetecting(true);
+    try {
+      const location = await locationService.detectLocation();
+      if (location) {
+        setDetectedLocation(location.state);
+        setCurrentLanguage(location.language);
+        i18n.changeLanguage(location.language);
+        
+        // Save as automatic selection
+        localStorage.setItem('selectedLanguage', location.language);
+        localStorage.setItem('isManualSelection', 'false');
+        
+        // Show notification
+        setNotificationData({
+          language: location.language,
+          location: location.state
+        });
+        setShowNotification(true);
+        
+        console.log(`Reset to auto-detection: ${location.language} based on ${location.state}`);
+      }
+    } catch (error) {
+      console.error('Reset to auto-detection failed:', error);
+    } finally {
+      setIsDetecting(false);
+    }
   };
 
   const handleCloseNotification = () => {
@@ -63,39 +103,55 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     const detectLocationAndLanguage = async () => {
       setIsDetecting(true);
       
-      // Check if user has manually selected a language before
-      const savedLanguage = localStorage.getItem('selectedLanguage');
-      if (savedLanguage) {
-        setCurrentLanguage(savedLanguage);
-        i18n.changeLanguage(savedLanguage);
-        setIsDetecting(false);
-        return;
-      }
-
       try {
+        // Always detect location on every reload
         const location = await locationService.detectLocation();
         if (location) {
           setDetectedLocation(location.state);
-          setCurrentLanguage(location.language);
-          i18n.changeLanguage(location.language);
           
-          // Show notification for auto-detected language
-          setNotificationData({
-            language: location.language,
-            location: location.state
-          });
-          setShowNotification(true);
+          // Check if user has manually selected a language
+          const savedLanguage = localStorage.getItem('selectedLanguage');
+          const isManualSelection = localStorage.getItem('isManualSelection') === 'true';
+          const autoDetectedLanguage = location.language;
           
-          console.log(`Language auto-detected: ${location.language} based on location: ${location.state}`);
+          if (isManualSelection && savedLanguage) {
+            // User has manually selected a language, respect their choice
+            setCurrentLanguage(savedLanguage);
+            i18n.changeLanguage(savedLanguage);
+            console.log(`Using manual selection: ${savedLanguage} (location suggests: ${autoDetectedLanguage})`);
+          } else {
+            // Use auto-detected language and show notification
+            setCurrentLanguage(autoDetectedLanguage);
+            i18n.changeLanguage(autoDetectedLanguage);
+            
+            // Save the auto-detected language but mark it as automatic
+            localStorage.setItem('selectedLanguage', autoDetectedLanguage);
+            localStorage.setItem('isManualSelection', 'false');
+            
+            // Show notification for auto-detected language
+            setNotificationData({
+              language: autoDetectedLanguage,
+              location: location.state
+            });
+            setShowNotification(true);
+            
+            console.log(`Language auto-detected: ${autoDetectedLanguage} based on location: ${location.state}`);
+          }
         } else {
-          // Fallback to English if detection fails
-          setCurrentLanguage('en');
-          i18n.changeLanguage('en');
+          // Fallback: check saved language or use English
+          const savedLanguage = localStorage.getItem('selectedLanguage');
+          const fallbackLanguage = savedLanguage || 'en';
+          setCurrentLanguage(fallbackLanguage);
+          i18n.changeLanguage(fallbackLanguage);
+          console.log(`Location detection failed, using fallback: ${fallbackLanguage}`);
         }
       } catch (error) {
         console.error('Language detection failed:', error);
-        setCurrentLanguage('en');
-        i18n.changeLanguage('en');
+        // Use saved language or fallback to English
+        const savedLanguage = localStorage.getItem('selectedLanguage');
+        const fallbackLanguage = savedLanguage || 'en';
+        setCurrentLanguage(fallbackLanguage);
+        i18n.changeLanguage(fallbackLanguage);
       } finally {
         setIsDetecting(false);
       }
@@ -107,6 +163,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const value: LanguageContextType = {
     currentLanguage,
     setLanguage,
+    resetToAutoDetection,
     isDetecting,
     detectedLocation,
     availableLanguages,
