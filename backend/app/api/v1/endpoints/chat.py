@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models import ChatMessage, User, Contract
 from app.schemas import (
-    ChatMessageCreate, ChatMessageResponse, ApiResponse, PaginatedResponse
+    ChatMessageCreate, ChatMessageResponse, ApiResponse, PaginatedResponse, JobAnalysisChatCreate
 )
 from app.dependencies import get_current_user, get_current_worker
 from app.services.gemini_service import gemini_service
@@ -83,6 +83,91 @@ async def send_chat_message(
             "ai_response": ChatMessageResponse.from_orm(ai_message)
         },
         message="Messages sent and received successfully"
+    )
+
+@router.post("/job-analysis", response_model=ApiResponse)
+async def send_job_analysis_message(
+    message: JobAnalysisChatCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_worker)
+):
+    """Send a chat message for job analysis with job and user context."""
+    
+    print(f"=== JOB ANALYSIS CHAT DEBUG ===")
+    print(f"Received message: {message}")
+    print(f"Current user: {current_user.id if current_user else 'None'}")
+    print(f"Job data provided: {message.job_data is not None}")
+    print(f"User data provided: {message.user_data is not None}")
+    print(f"================================")
+    
+    # Ensure the message is from the current user
+    if message.sender_id != current_user.id:
+        print(f"ERROR: Sender ID mismatch. Message sender: {message.sender_id}, Current user: {current_user.id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot send message on behalf of another user"
+        )
+    
+    # Save user message
+    user_message = ChatMessage(
+        sender_id=message.sender_id,
+        receiver_id=message.receiver_id,
+        message=message.message,
+        message_type=message.message_type,
+        contract_id=message.contract_id
+    )
+    
+    db.add(user_message)
+    db.commit()
+    db.refresh(user_message)
+    
+    # Prepare user data (use provided data or fetch from current user)
+    user_data = message.user_data or {
+        "id": current_user.id,
+        "name": current_user.name,
+        "area_of_expertise": current_user.area_of_expertise,
+        "location": current_user.location,
+        "preferences": current_user.preferences,
+        "experience": current_user.experience
+    }
+    
+    # Generate AI response using job analysis
+    try:
+        if message.job_data:
+            # Use specialized job analysis if job data is provided
+            ai_response_text = await gemini_service.analyze_job_opportunity(
+                message.job_data, 
+                user_data, 
+                message.message
+            )
+        else:
+            # Fall back to general assistance if no job data
+            ai_response_text = await gemini_service.general_assistance(user_data, message.message)
+            
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        ai_response_text = "I'm having trouble analyzing this job opportunity right now. Please try again in a moment."
+    
+    # Save AI response
+    ai_message = ChatMessage(
+        sender_id="ai-assistant",
+        receiver_id=current_user.id,
+        message=ai_response_text,
+        message_type="text",
+        contract_id=message.contract_id
+    )
+    
+    db.add(ai_message)
+    db.commit()
+    db.refresh(ai_message)
+    
+    return ApiResponse(
+        success=True,
+        data={
+            "user_message": ChatMessageResponse.from_orm(user_message),
+            "ai_response": ChatMessageResponse.from_orm(ai_message)
+        },
+        message="Job analysis completed successfully"
     )
 
 @router.get("/", response_model=PaginatedResponse)
