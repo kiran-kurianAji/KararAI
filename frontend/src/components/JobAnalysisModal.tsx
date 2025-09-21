@@ -455,6 +455,8 @@ const JobAnalysisModal = ({ isOpen, onClose, contract, user }: JobAnalysisModalP
                       contractId={contract.id}
                       sessionType="job-analysis"
                       className="h-full"
+                      jobData={contract}
+                      userData={user}
                     />
                   </div>
                 )}

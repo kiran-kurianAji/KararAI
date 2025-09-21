@@ -74,6 +74,7 @@ export const jobsAPI = {
 // Chat API calls
 export const chatAPI = {
   sendMessage: (messageData: any) => api.post('/chat/', messageData),
+  sendJobAnalysisMessage: (messageData: any) => api.post('/chat/job-analysis', messageData),
   getMessages: (params: any = {}) => api.get('/chat/', { params }),
   getConversation: (params: any = {}) => api.get('/chat/conversation/', { params }),
   markMessagesRead: (messageIds: string[]) => api.post('/chat/mark-read/', { message_ids: messageIds }),

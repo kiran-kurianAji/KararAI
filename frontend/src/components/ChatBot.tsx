@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, RotateCcw, Mic, MicOff, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ChatMessage } from '../types';
+import ReactMarkdown from 'react-markdown';
+import type { ChatMessage, Contract, User as UserType } from '../types';
 import { chatAPI } from '../services/api';
 import { voiceService, type VoiceRecording } from '../services/voiceService';
 import type { AxiosError } from 'axios';
@@ -12,9 +13,11 @@ interface ChatBotProps {
   className?: string;
   sessionType?: 'general' | 'job-analysis';
   onClose?: () => void;
+  jobData?: Contract; // Job/contract data for analysis
+  userData?: UserType; // User profile data for analysis
 }
 
-const ChatBot = ({ userId, contractId, className = '', sessionType = 'general' }: ChatBotProps) => {
+const ChatBot = ({ userId, contractId, className = '', sessionType = 'general', jobData, userData }: ChatBotProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -244,16 +247,35 @@ const ChatBot = ({ userId, contractId, className = '', sessionType = 'general' }
         receiver_id: 'ai-assistant',
         message,
         message_type: 'text',
-        contract_id: contractId
+        contract_id: contractId,
+        session_type: sessionType,
+        has_job_data: !!jobData,
+        has_user_data: !!userData
       });
 
-      const response = await chatAPI.sendMessage({
-        sender_id: userId,
-        receiver_id: 'ai-assistant',
-        message,
-        message_type: 'text',
-        contract_id: contractId
-      });
+      let response;
+      
+      // Use job analysis endpoint if we're in job-analysis mode and have context data
+      if (sessionType === 'job-analysis' && (jobData || userData)) {
+        response = await chatAPI.sendJobAnalysisMessage({
+          sender_id: userId,
+          receiver_id: 'ai-assistant',
+          message,
+          message_type: 'text',
+          contract_id: contractId,
+          job_data: jobData,
+          user_data: userData
+        });
+      } else {
+        // Use regular chat endpoint
+        response = await chatAPI.sendMessage({
+          sender_id: userId,
+          receiver_id: 'ai-assistant',
+          message,
+          message_type: 'text',
+          contract_id: contractId
+        });
+      }
 
       console.log('Full response:', response);
       console.log('Response data:', response.data);
@@ -444,8 +466,29 @@ const ChatBot = ({ userId, contractId, className = '', sessionType = 'general' }
                       : 'bg-white text-gray-900 border border-gray-200'
                   }`}
                 >
-                  <div className="text-sm whitespace-pre-wrap break-words">
-                    {message.message}
+                  <div className="text-sm break-words">
+                    {message.senderId === userId ? (
+                      // User messages - plain text
+                      <div className="whitespace-pre-wrap">{message.message}</div>
+                    ) : (
+                      // AI messages - markdown formatted
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown 
+                          components={{
+                            // Custom components for better styling
+                            strong: ({ children }) => <span className="font-bold text-gray-900">{children}</span>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0 text-gray-700">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                            li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+                            h1: ({ children }) => <h1 className="text-base font-bold mb-2 text-gray-900">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-sm font-bold mb-1 text-gray-900">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 text-gray-900">{children}</h3>,
+                          }}
+                        >
+                          {message.message}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                   <div
                     className={`text-xs mt-1 ${
@@ -489,12 +532,19 @@ const ChatBot = ({ userId, contractId, className = '', sessionType = 'general' }
       {/* Quick Action Buttons */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
         <div className="flex flex-wrap gap-2">
-          {[
+          {(sessionType === 'job-analysis' ? [
+            'Is this job suitable for me?',
+            'Analyze the wage fairness',
+            'Check location compatibility',
+            'Review contract terms',
+            'What are the risks?',
+            'Should I negotiate?'
+          ] : [
             'Find jobs near me',
             'Check payments',
             'Log work hours',
             'My rights'
-          ].map((quickAction) => (
+          ]).map((quickAction) => (
             <motion.button
               key={quickAction}
               whileHover={{ scale: 1.02 }}

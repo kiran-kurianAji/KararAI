@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import type { User, LoginCredentials, FormError } from '../types';
 import { authAPI, setAuthToken, setCurrentUser } from '../services/api';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface LoginProps {
   onLogin: (user: User) => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState<LoginCredentials>({
     phoneOrEmail: '',
     password: ''
@@ -31,11 +33,11 @@ const Login = ({ onLogin }: LoginProps) => {
     const newErrors: FormError[] = [];
 
     if (!formData.phoneOrEmail.trim()) {
-      newErrors.push({ field: 'phoneOrEmail', message: 'Phone number or email is required' });
+      newErrors.push({ field: 'phoneOrEmail', message: t('auth.phoneEmailRequired') });
     }
 
     if (!formData.password) {
-      newErrors.push({ field: 'password', message: 'Password is required' });
+      newErrors.push({ field: 'password', message: t('auth.passwordRequired') });
     }
 
     setErrors(newErrors);
@@ -95,15 +97,15 @@ const Login = ({ onLogin }: LoginProps) => {
             <span className="text-white font-bold text-lg">KW</span>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-800">
-            Sign in to your account
+            {t('auth.signInToAccount')}
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Or{' '}
+            {t('auth.or')}{' '}
             <Link
               to="/register"
               className="font-medium text-red-700 hover:text-red-600"
             >
-              create a new account
+              {t('auth.createNewAccount')}
             </Link>
           </p>
         </div>
@@ -121,7 +123,7 @@ const Login = ({ onLogin }: LoginProps) => {
             {/* Phone or Email */}
             <div>
               <label htmlFor="phoneOrEmail" className="block text-sm font-medium text-slate-700">
-                Phone Number or Email
+                {t('auth.phoneOrEmail')}
               </label>
               <input
                 id="phoneOrEmail"
@@ -133,7 +135,7 @@ const Login = ({ onLogin }: LoginProps) => {
                 className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                   getFieldError('phoneOrEmail') ? 'border-red-300' : 'border-slate-300'
                 } placeholder-slate-500 text-slate-800 rounded-md focus:outline-none focus:ring-red-700 focus:border-red-700 focus:z-10 sm:text-sm`}
-                placeholder="Enter your phone number or email"
+                placeholder={t('auth.phoneEmailPlaceholder')}
               />
               {getFieldError('phoneOrEmail') && (
                 <p className="mt-1 text-sm text-red-600">{getFieldError('phoneOrEmail')}</p>
@@ -143,7 +145,7 @@ const Login = ({ onLogin }: LoginProps) => {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-                Password
+                {t('auth.password')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -156,7 +158,7 @@ const Login = ({ onLogin }: LoginProps) => {
                   className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                     getFieldError('password') ? 'border-red-300' : 'border-slate-300'
                   } placeholder-slate-500 text-slate-800 rounded-md focus:outline-none focus:ring-red-700 focus:border-red-700 focus:z-10 sm:text-sm`}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.passwordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -186,13 +188,13 @@ const Login = ({ onLogin }: LoginProps) => {
                 className="h-4 w-4 text-red-700 focus:ring-red-700 border-slate-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-800">
-                Remember me
+                {t('auth.rememberMe')}
               </label>
             </div>
 
             <div className="text-sm">
               <a href="#" className="font-medium text-red-700 hover:text-red-600">
-                Forgot your password?
+                {t('auth.forgotPassword')}
               </a>
             </div>
           </div>
@@ -207,12 +209,12 @@ const Login = ({ onLogin }: LoginProps) => {
               {isSubmitting ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Signing in...
+                  {t('auth.signingIn')}
                 </div>
               ) : (
                 <div className="flex items-center">
                   <LogIn className="w-4 h-4 mr-2" />
-                  Sign in
+                  {t('auth.signIn')}
                 </div>
               )}
             </button>
@@ -220,10 +222,10 @@ const Login = ({ onLogin }: LoginProps) => {
 
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-blue-50 rounded-md">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Account:</h4>
+            <h4 className="text-sm font-medium text-blue-900 mb-2">{t('auth.demoAccount')}</h4>
             <p className="text-xs text-blue-700 mb-3">
-              <strong>Email:</strong> demo@example.com<br />
-              <strong>Password:</strong> password123
+              <strong>{t('auth.email')}:</strong> demo@example.com<br />
+              <strong>{t('auth.password')}:</strong> password123
             </p>
             <button
               type="button"
@@ -235,7 +237,7 @@ const Login = ({ onLogin }: LoginProps) => {
               }}
               className="w-full px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              Use Demo Account
+              {t('auth.useDemoAccount')}
             </button>
           </div>
         </form>

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Search, MapPin, Calendar, Star, ExternalLink } from 'lucide-react';
 import type { User, SuggestedJob } from '../types';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface JobListingsProps {
   user: User;
 }
 
 const JobListings = ({ user }: JobListingsProps) => {
+  const { t } = useLanguage();
   const [suggestedJobs, setSuggestedJobs] = useState<SuggestedJob[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<SuggestedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,7 +185,7 @@ const JobListings = ({ user }: JobListingsProps) => {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-800 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading job opportunities...</p>
+          <p className="text-slate-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -196,13 +198,13 @@ const JobListings = ({ user }: JobListingsProps) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Job Listings</h1>
+              <h1 className="text-2xl font-bold text-slate-800">{t('jobs.title')}</h1>
               <p className="text-slate-600 mt-1">
-                {filteredJobs.length} opportunities matching your skills
+                {filteredJobs.length} {t('jobs.opportunitiesMatching')}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-slate-500">Welcome back,</p>
+              <p className="text-sm text-slate-500">{t('jobs.welcomeBack')}</p>
               <p className="font-semibold text-slate-800">{user.name}</p>
             </div>
           </div>
@@ -219,7 +221,7 @@ const JobListings = ({ user }: JobListingsProps) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search jobs by title, description, or skills..."
+                  placeholder={t('jobs.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-800 focus:border-red-800"
@@ -234,7 +236,7 @@ const JobListings = ({ user }: JobListingsProps) => {
                 onChange={(e) => setSelectedSkill(e.target.value)}
                 className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-800"
               >
-                <option value="all">All Skills</option>
+                <option value="all">{t('jobs.allSkills')}</option>
                 {uniqueSkills.map(skill => (
                   <option key={skill} value={skill}>{skill}</option>
                 ))}
@@ -245,10 +247,10 @@ const JobListings = ({ user }: JobListingsProps) => {
                 onChange={(e) => setSelectedUrgency(e.target.value)}
                 className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-800"
               >
-                <option value="all">All Priorities</option>
-                <option value="high">High Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="low">Low Priority</option>
+                <option value="all">{t('jobs.allPriorities')}</option>
+                <option value="high">{t('jobs.highPriority')}</option>
+                <option value="medium">{t('jobs.mediumPriority')}</option>
+                <option value="low">{t('jobs.lowPriority')}</option>
               </select>
             </div>
           </div>
@@ -281,7 +283,7 @@ const JobListings = ({ user }: JobListingsProps) => {
                   job.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                   'bg-green-100 text-green-700'
                 }`}>
-                  {job.urgency} priority
+                  {t(`jobs.${job.urgency}Priority`)}
                 </span>
               </div>
 
@@ -325,18 +327,18 @@ const JobListings = ({ user }: JobListingsProps) => {
                   onClick={() => handleApplyToJob(job.id)}
                   className="flex-1 bg-red-700 text-white py-2 px-4 rounded-lg hover:bg-red-800 transition-colors text-sm font-medium"
                 >
-                  Apply Now
+                  {t('jobs.applyNow')}
                 </button>
                 <button
                   className="flex items-center justify-center w-10 h-10 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                  title="View Details"
+                  title={t('jobs.viewDetails')}
                 >
                   <ExternalLink className="w-4 h-4 text-slate-600" />
                 </button>
               </div>
 
               <p className="text-xs text-slate-500 mt-3 text-center">
-                Posted {Math.floor((new Date().getTime() - job.postedAt.getTime()) / (1000 * 60 * 60 * 24))} days ago
+                {t('jobs.posted')} {Math.floor((new Date().getTime() - job.postedAt.getTime()) / (1000 * 60 * 60 * 24))} {t('jobs.daysAgo')}
               </p>
             </div>
           ))}
@@ -347,9 +349,9 @@ const JobListings = ({ user }: JobListingsProps) => {
             <div className="text-slate-400 mb-4">
               <Search className="w-12 h-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-slate-800 mb-2">No jobs found</h3>
+            <h3 className="text-lg font-medium text-slate-800 mb-2">{t('jobs.noJobs')}</h3>
             <p className="text-slate-600">
-              Try adjusting your search criteria or filters to find more opportunities.
+              {t('jobs.adjustFilters')}
             </p>
           </div>
         )}
