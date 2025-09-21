@@ -278,6 +278,12 @@ class ChatMessageCreate(ChatMessageBase):
     sender_id: str
     receiver_id: Optional[str] = None
 
+class JobAnalysisChatCreate(ChatMessageBase):
+    sender_id: str
+    receiver_id: Optional[str] = None
+    job_data: Optional[Dict[str, Any]] = None
+    user_data: Optional[Dict[str, Any]] = None
+
 class ChatMessageResponse(ChatMessageBase):
     id: str
     sender_id: str

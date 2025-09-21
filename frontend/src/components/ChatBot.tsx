@@ -1,94 +1,236 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
-import type { ChatMessage } from '../types';
+import { Send, Bot, User, RotateCcw, Mic, MicOff, Volume2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import type { ChatMessage, Contract, User as UserType } from '../types';
+import { chatAPI } from '../services/api';
+import { voiceService, type VoiceRecording } from '../services/voiceService';
+import type { AxiosError } from 'axios';
 
 interface ChatBotProps {
   userId: string;
   contractId?: string;
   className?: string;
+  sessionType?: 'general' | 'job-analysis';
+  onClose?: () => void;
+  jobData?: Contract; // Job/contract data for analysis
+  userData?: UserType; // User profile data for analysis
 }
 
-const ChatBot = ({ userId, contractId, className = '' }: ChatBotProps) => {
+const ChatBot = ({ userId, contractId, className = '', sessionType = 'general', jobData, userData }: ChatBotProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Generate session ID for storage
+  const sessionId = `chat_${sessionType}_${userId}_${contractId || 'general'}`;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    // Initialize with welcome message
+  const resetChat = () => {
+    // Stop any currently playing audio
+    voiceService.stopAudio();
+    setIsPlaying(false);
+    
+    // Clear localStorage
+    localStorage.removeItem(sessionId);
+    
+    // Reset messages to welcome message
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       senderId: 'ai-assistant',
-      message: `Hello! I'm your AI assistant. I can help you with:\n\n• Finding suitable jobs\n• Understanding contract terms\n• Payment tracking\n• Work log management\n• Legal questions about labor rights\n\nWhat would you like to know?`,
+      message: sessionType === 'job-analysis' 
+        ? `Hello! I'm analyzing this job opportunity for you. I can provide insights on:\n\n• Job relevance to your skills\n• Wage fairness and market rates\n• Location and commute analysis\n• Contract terms review\n• Safety and compliance check\n\nWhat would you like me to analyze first?`
+        : `Hello! I'm your AI assistant powered by Gemini AI. I can help you with:\n\n• Finding suitable jobs based on your profile\n• Understanding contract terms and fairness\n• Payment tracking and wage analysis\n• Work log management and tips\n• Legal questions about labor rights\n• Government schemes and benefits\n\nWhat would you like to know?`,
       messageType: 'text',
       timestamp: new Date(),
       isRead: true
     };
     setMessages([welcomeMessage]);
+  };
+
+  // Load chat history from localStorage
+  useEffect(() => {
+    const savedMessages = localStorage.getItem(sessionId);
+    if (savedMessages) {
+      try {
+        const parsedMessages: ChatMessage[] = JSON.parse(savedMessages);
+        setMessages(parsedMessages.map((msg) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        })));
+        return;
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    }
+
+    // Initialize with welcome message if no saved history
+    const welcomeMessage: ChatMessage = {
+      id: 'welcome',
+      senderId: 'ai-assistant',
+      message: sessionType === 'job-analysis' 
+        ? `Hello! I'm analyzing this job opportunity for you. I can provide insights on:\n\n• Job relevance to your skills\n• Wage fairness and market rates\n• Location and commute analysis\n• Contract terms review\n• Safety and compliance check\n\nWhat would you like me to analyze first?`
+        : `Hello! I'm your AI assistant powered by Gemini AI. I can help you with:\n\n• Finding suitable jobs based on your profile\n• Understanding contract terms and fairness\n• Payment tracking and wage analysis\n• Work log management and tips\n• Legal questions about labor rights\n• Government schemes and benefits\n\nWhat would you like to know?`,
+      messageType: 'text',
+      timestamp: new Date(),
+      isRead: true
+    };
+    setMessages([welcomeMessage]);
+  }, [sessionId, sessionType]);
+
+  // Initialize voice service
+  useEffect(() => {
+    const initVoice = async () => {
+      if (voiceService.isSupported()) {
+        const config = voiceService.getConfig();
+        setIsVoiceEnabled(config.enabled);
+      }
+    };
+    initVoice();
   }, []);
+
+  // Voice recording handlers
+  const handleVoiceToggle = async () => {
+    if (!voiceService.isSupported()) {
+      alert('Voice recording is not supported in your browser. Please use Chrome, Edge, or Firefox.');
+      return;
+    }
+
+    if (!isRecording) {
+      try {
+        const hasPermission = await voiceService.requestPermission();
+        if (!hasPermission) {
+          alert('Microphone permission is required for voice input.');
+          return;
+        }
+
+        await voiceService.startRecording();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        alert('Failed to start recording. Please check your microphone.');
+      }
+    } else {
+      try {
+        const recording: VoiceRecording | null = await voiceService.stopRecording();
+        setIsRecording(false);
+
+        if (recording && recording.audioBlob.size > 0) {
+          await processVoiceInput(recording);
+        } else {
+          alert('No audio recorded. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        alert('Failed to process recording. Please try again.');
+      }
+    }
+  };
+
+  const processVoiceInput = async (recording: VoiceRecording) => {
+    try {
+      setIsTyping(true);
+      
+      // Convert speech to text
+      const transcription = await voiceService.speechToText(recording.audioBlob);
+      
+      if (transcription.text.trim()) {
+        setNewMessage(transcription.text);
+        // Auto-send the transcribed message
+        setTimeout(() => {
+          handleSendMessage(transcription.text);
+        }, 500);
+      } else {
+        alert('Could not understand the audio. Please try speaking more clearly.');
+      }
+    } catch (error) {
+      console.error('Voice processing error:', error);
+      alert('Voice processing failed. Please try again or type your message.');
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleLanguageToggle = () => {
+    const newEnabled = !isVoiceEnabled;
+    
+    // Stop any currently playing audio when disabling
+    if (!newEnabled) {
+      voiceService.stopAudio();
+      setIsPlaying(false);
+    }
+    
+    setIsVoiceEnabled(newEnabled);
+    
+    voiceService.setConfig({
+      enabled: newEnabled,
+      inputLanguage: 'hi',
+      outputLanguage: 'hi'
+    });
+  };
+
+  const playAIResponse = async (message: string) => {
+    if (!isVoiceEnabled || !message.trim()) return;
+
+    try {
+      setIsPlaying(true);
+      await voiceService.textToSpeech(message);
+    } catch (error) {
+      console.error('Text-to-speech error:', error);
+      // Silently fail for TTS errors
+    } finally {
+      setIsPlaying(false);
+    }
+  };
+
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(sessionId, JSON.stringify(messages));
+    }
+  }, [messages, sessionId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const generateAIResponse = async (userMessage: string): Promise<string> => {
-    // Simulate AI processing time
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+  // Cleanup effect - stop audio on unmount or page reload
+  useEffect(() => {
+    // Cleanup function
+    const cleanup = () => {
+      voiceService.stopAudio();
+      voiceService.cleanup();
+    };
 
-    const lowerMessage = userMessage.toLowerCase();
+    // Listen for page unload
+    const handleBeforeUnload = () => {
+      cleanup();
+    };
 
-    // Job-related queries
-    if (lowerMessage.includes('job') || lowerMessage.includes('work') || lowerMessage.includes('contract')) {
-      if (lowerMessage.includes('find') || lowerMessage.includes('search')) {
-        return "I can help you find jobs! Based on your profile:\n\n• Construction jobs within 25km of your location\n• Carpentry work matching your skills\n• Projects paying above your minimum wage (₹500/day)\n\nWould you like me to show you some specific opportunities or help you refine your search criteria?";
-      }
-      if (lowerMessage.includes('apply') || lowerMessage.includes('application')) {
-        return "To apply for a job:\n\n1. Make sure your profile is complete and verified\n2. Review the job requirements carefully\n3. Check the fairness score (aim for 7+ rating)\n4. Click 'Apply' on jobs that match your skills\n\nRemember: Only apply to jobs with minimum wage compliance. Would you like me to explain what to look for in a good contract?";
-      }
-    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Payment-related queries
-    if (lowerMessage.includes('payment') || lowerMessage.includes('money') || lowerMessage.includes('salary')) {
-      return "For payment tracking:\n\n• All payments are recorded in your digital ledger\n• You can upload payment proofs (screenshots/SMS)\n• Track pending payments and raise disputes if needed\n• Generate payment receipts for your records\n\nCurrent status: You have ₹8,000 pending from your active contract. Need help with anything specific?";
-    }
+    // Cleanup on component unmount
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      cleanup();
+    };
+  }, []);
 
-    // Legal/Rights queries
-    if (lowerMessage.includes('legal') || lowerMessage.includes('rights') || lowerMessage.includes('minimum wage')) {
-      return "Your labor rights include:\n\n• Minimum wage protection (varies by state)\n• Safe working conditions\n• Timely payment as per contract terms\n• Right to raise disputes\n\nIn Karnataka, current minimum wage is ₹458/day for construction work. Always check if jobs meet legal requirements before applying. Need specific legal guidance?";
-    }
-
-    // Work log queries
-    if (lowerMessage.includes('hours') || lowerMessage.includes('log') || lowerMessage.includes('time')) {
-      return "Work logging is important for:\n\n• Accurate payment calculation\n• Dispute resolution\n• Building your work history\n• Performance tracking\n\nYou can log hours daily in your active contracts. Today you've logged 6 hours. Don't forget to update when you finish work!";
-    }
-
-    // Profile/Verification queries
-    if (lowerMessage.includes('profile') || lowerMessage.includes('verification') || lowerMessage.includes('verify')) {
-      return "Your profile status:\n\n✅ Basic info complete\n✅ Skills and experience added\n✅ Digital ID verified\n✅ Account active\n\nYou can apply to all available jobs. To improve your profile:\n• Add more skills\n• Complete more jobs to increase rating\n• Add work samples if applicable";
-    }
-
-    // Default responses
-    const defaultResponses = [
-      "I understand you're asking about that. Could you provide more specific details so I can help you better?",
-      "That's a good question! Let me help you with that. Can you tell me more about what specifically you need assistance with?",
-      "I'm here to help with job-related questions, contracts, payments, and work logging. What would you like to know more about?",
-      "Thanks for reaching out! I can assist with finding jobs, understanding contracts, tracking payments, or answering questions about your rights. What's on your mind?"
-    ];
-
-    return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
-  };
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+  const handleSendMessage = async (messageText?: string) => {
+    const message = messageText || newMessage.trim();
+    if (!message) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       senderId: userId,
-      message: newMessage.trim(),
+      message,
       messageType: 'text',
       timestamp: new Date(),
       isRead: true,
@@ -96,16 +238,67 @@ const ChatBot = ({ userId, contractId, className = '' }: ChatBotProps) => {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setNewMessage('');
+    if (!messageText) setNewMessage(''); // Only clear if it's from the input
     setIsTyping(true);
 
     try {
-      const aiResponse = await generateAIResponse(userMessage.message);
+      console.log('Sending message:', {
+        sender_id: userId,
+        receiver_id: 'ai-assistant',
+        message,
+        message_type: 'text',
+        contract_id: contractId,
+        session_type: sessionType,
+        has_job_data: !!jobData,
+        has_user_data: !!userData
+      });
+
+      let response;
       
+      // Use job analysis endpoint if we're in job-analysis mode and have context data
+      if (sessionType === 'job-analysis' && (jobData || userData)) {
+        response = await chatAPI.sendJobAnalysisMessage({
+          sender_id: userId,
+          receiver_id: 'ai-assistant',
+          message,
+          message_type: 'text',
+          contract_id: contractId,
+          job_data: jobData,
+          user_data: userData
+        });
+      } else {
+        // Use regular chat endpoint
+        response = await chatAPI.sendMessage({
+          sender_id: userId,
+          receiver_id: 'ai-assistant',
+          message,
+          message_type: 'text',
+          contract_id: contractId
+        });
+      }
+
+      console.log('Full response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response data.data:', response.data.data);
+      console.log('AI response object:', response.data.data?.ai_response);
+      console.log('AI response message:', response.data.data?.ai_response?.message);
+
+      // Fix response parsing based on backend structure
+      let aiResponseText = '';
+      if (response.data?.data?.ai_response?.message) {
+        aiResponseText = response.data.data.ai_response.message;
+      } else if (response.data?.data?.ai_response) {
+        aiResponseText = response.data.data.ai_response;
+      } else if (response.data?.message) {
+        aiResponseText = response.data.message;
+      } else {
+        aiResponseText = 'I received your message but had trouble generating a response. Please try again.';
+      }
+
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         senderId: 'ai-assistant',
-        message: aiResponse,
+        message: aiResponseText,
         messageType: 'text',
         timestamp: new Date(),
         isRead: true,
@@ -113,16 +306,40 @@ const ChatBot = ({ userId, contractId, className = '' }: ChatBotProps) => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
+
+      // Play AI response if voice is enabled
+      if (isVoiceEnabled) {
+        setTimeout(() => {
+          playAIResponse(aiResponseText);
+        }, 500);
+      }
+
+    } catch (error: unknown) {
+      console.error('Chat API error:', error);
+      
+      const axiosError = error as AxiosError;
+      console.error('Error response:', axiosError.response?.data);
+      console.error('Error status:', axiosError.response?.status);
+      
+      let errorMessage = 'Sorry, I encountered an error connecting to the AI service.';
+      
+      if (axiosError.response?.status === 422) {
+        errorMessage = 'There was a validation error with your message. Please try rephrasing.';
+      } else if (axiosError.response?.status === 401) {
+        errorMessage = 'Authentication error. Please try logging in again.';
+      } else if (axiosError.response?.status === 500) {
+        errorMessage = 'The AI service is temporarily unavailable. Please try again in a moment.';
+      }
+      
+      const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         senderId: 'ai-assistant',
-        message: 'Sorry, I encountered an error. Please try again or contact support if the issue persists.',
+        message: errorMessage + ' \n\nPlease check if the backend server is running.',
         messageType: 'text',
         timestamp: new Date(),
         isRead: true
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsTyping(false);
     }
@@ -144,94 +361,206 @@ const ChatBot = ({ userId, contractId, className = '' }: ChatBotProps) => {
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
+      {/* Chat Header with Voice Controls and Reset Button */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-blue-500">
+        <div className="flex items-center space-x-2">
+          <Bot className="w-6 h-6 text-white" />
+          <h3 className="text-white font-semibold">
+            {sessionType === 'job-analysis' ? 'Job Analysis AI' : 'AI Assistant'}
+          </h3>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {/* Hindi Voice Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleLanguageToggle}
+            className={`px-3 py-1 rounded-lg transition-all duration-200 text-xs font-medium ${
+              isVoiceEnabled 
+                ? 'bg-green-500 text-white' 
+                : 'bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800'
+            }`}
+            title={`${isVoiceEnabled ? 'Disable' : 'Enable'} Hindi voice input/output`}
+          >
+            🇮🇳 हिंदी
+          </motion.button>
+
+          {/* Voice Recording Button */}
+          {voiceService.isSupported() && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleVoiceToggle}
+              disabled={!isVoiceEnabled}
+              className={`p-2 rounded-lg transition-all duration-200 ${
+                isRecording 
+                  ? 'bg-red-500 text-white animate-pulse' 
+                  : isVoiceEnabled
+                    ? 'bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800'
+                    : 'bg-gray-500 bg-opacity-50 text-gray-300 cursor-not-allowed'
+              }`}
+              title={isRecording ? 'Stop recording' : 'Start voice recording'}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </motion.button>
+          )}
+
+          {/* Audio Playing Indicator */}
+          {isPlaying && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="p-2 bg-blue-500 text-white rounded-lg"
+              title="Playing audio response"
+            >
+              <Volume2 className="w-4 h-4 animate-pulse" />
+            </motion.div>
+          )}
+
+          {/* Reset Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={resetChat}
+            className="p-2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-lg transition-all duration-200"
+            title="Reset Chat"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </motion.button>
+        </div>
+      </div>
+
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`flex max-w-[85%] ${message.senderId === userId ? 'flex-row-reverse' : 'flex-row'}`}>
-              {/* Avatar */}
-              <div className={`flex-shrink-0 ${message.senderId === userId ? 'ml-2' : 'mr-2'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  message.senderId === userId ? 'bg-blue-500' : 'bg-purple-500'
-                }`}>
-                  {message.senderId === userId ? (
-                    <User className="w-3 h-3 text-white" />
-                  ) : (
-                    <Bot className="w-3 h-3 text-white" />
-                  )}
+        <AnimatePresence>
+          {messages.map((message) => (
+            <motion.div
+              key={message.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`flex max-w-[85%] ${message.senderId === userId ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* Avatar */}
+                <div className={`flex-shrink-0 ${message.senderId === userId ? 'ml-2' : 'mr-2'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    message.senderId === userId ? 'bg-blue-500' : 'bg-gradient-to-r from-purple-500 to-blue-500'
+                  }`}>
+                    {message.senderId === userId ? (
+                      <User className="w-4 h-4 text-white" />
+                    ) : (
+                      <Bot className="w-4 h-4 text-white" />
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Message Bubble */}
-              <div
-                className={`px-3 py-2 rounded-lg ${
-                  message.senderId === userId
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <div className="text-sm whitespace-pre-wrap break-words">
-                  {message.message}
-                </div>
+                {/* Message Bubble */}
                 <div
-                  className={`text-xs mt-1 ${
-                    message.senderId === userId ? 'text-blue-100' : 'text-gray-500'
+                  className={`px-4 py-3 rounded-lg shadow-sm ${
+                    message.senderId === userId
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-900 border border-gray-200'
                   }`}
                 >
-                  {formatTime(message.timestamp)}
+                  <div className="text-sm break-words">
+                    {message.senderId === userId ? (
+                      // User messages - plain text
+                      <div className="whitespace-pre-wrap">{message.message}</div>
+                    ) : (
+                      // AI messages - markdown formatted
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown 
+                          components={{
+                            // Custom components for better styling
+                            strong: ({ children }) => <span className="font-bold text-gray-900">{children}</span>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0 text-gray-700">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                            li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+                            h1: ({ children }) => <h1 className="text-base font-bold mb-2 text-gray-900">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-sm font-bold mb-1 text-gray-900">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 text-gray-900">{children}</h3>,
+                          }}
+                        >
+                          {message.message}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={`text-xs mt-1 ${
+                      message.senderId === userId ? 'text-blue-100' : 'text-gray-500'
+                    }`}
+                  >
+                    {formatTime(message.timestamp)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* Typing Indicator */}
         {isTyping && (
-          <div className="flex justify-start">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="flex justify-start"
+          >
             <div className="flex mr-2">
-              <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
-                <Bot className="w-3 h-3 text-white" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-white" />
               </div>
             </div>
-            <div className="bg-gray-100 px-3 py-2 rounded-lg max-w-[85%]">
+            <div className="bg-white px-4 py-3 rounded-lg border border-gray-200 shadow-sm">
               <div className="flex space-x-1">
-                <div className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"></div>
-                <div className="w-1 h-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-1 h-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
       {/* Quick Action Buttons */}
-      <div className="px-4 py-2 border-t border-gray-200">
-        <div className="flex flex-wrap gap-1">
-          {[
+      <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap gap-2">
+          {(sessionType === 'job-analysis' ? [
+            'Is this job suitable for me?',
+            'Analyze the wage fairness',
+            'Check location compatibility',
+            'Review contract terms',
+            'What are the risks?',
+            'Should I negotiate?'
+          ] : [
             'Find jobs near me',
             'Check payments',
             'Log work hours',
             'My rights'
-          ].map((quickAction) => (
-            <button
+          ]).map((quickAction) => (
+            <motion.button
               key={quickAction}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setNewMessage(quickAction)}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              className="px-3 py-2 text-xs bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all duration-200 shadow-sm"
             >
               {quickAction}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
 
       {/* Message Input */}
       <div className="p-4 border-t border-gray-200 bg-white">
-        <div className="flex items-end space-x-2">
+        <div className="flex items-end space-x-3">
           <div className="flex-1">
             <textarea
               value={newMessage}
@@ -239,17 +568,19 @@ const ChatBot = ({ userId, contractId, className = '' }: ChatBotProps) => {
               onKeyPress={handleKeyPress}
               placeholder="Ask me anything about jobs, contracts, or payments..."
               rows={1}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-              style={{ minHeight: '40px', maxHeight: '100px' }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
+              style={{ minHeight: '48px', maxHeight: '120px' }}
             />
           </div>
-          <button
-            onClick={handleSendMessage}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleSendMessage()}
             disabled={!newMessage.trim() || isTyping}
-            className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
           >
-            <Send className="w-4 h-4" />
-          </button>
+            <Send className="w-5 h-5" />
+          </motion.button>
         </div>
       </div>
     </div>

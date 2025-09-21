@@ -4,6 +4,7 @@ import { Briefcase } from 'lucide-react';
 import type { User, Contract } from '../types';
 import ContractList from '../components/ContractList';
 import ChatBot from '../components/ChatBot';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface HomeProps {
   user: User;
@@ -11,6 +12,7 @@ interface HomeProps {
 
 const Home = ({ user }: HomeProps) => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [currentContracts, setCurrentContracts] = useState<Contract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -160,15 +162,15 @@ const Home = ({ user }: HomeProps) => {
           <div className="bg-white border-b border-slate-200 px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-800">Your Active Contracts</h2>
-                <p className="text-sm text-slate-600">Track progress and log your daily work</p>
+                <h2 className="text-xl font-semibold text-slate-800">{t('home.activeContracts')}</h2>
+                <p className="text-sm text-slate-600">{t('home.trackProgress')}</p>
               </div>
               <button
                 onClick={() => navigate('/job-listings')}
                 className="flex items-center px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors"
               >
                 <Briefcase className="w-4 h-4 mr-2" />
-                Browse Jobs
+                {t('home.browseJobs')}
               </button>
             </div>
           </div>
@@ -189,8 +191,8 @@ const Home = ({ user }: HomeProps) => {
         {/* Fixed Right Chatbot (1/3 width) */}
         <div className="w-1/3 bg-slate-200 border-l border-slate-300 flex flex-col">
           <div className="px-6 py-4 border-b border-slate-300 bg-slate-300">
-            <h2 className="text-lg font-semibold text-slate-800">AI Assistant</h2>
-            <p className="text-sm text-slate-600">Get help with jobs and contracts</p>
+            <h2 className="text-lg font-semibold text-slate-800">{t('home.aiAssistant')}</h2>
+            <p className="text-sm text-slate-600">{t('home.aiDescription')}</p>
           </div>
           <div className="flex-1 overflow-hidden">
             <ChatBot 

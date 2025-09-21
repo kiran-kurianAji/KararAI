@@ -5,7 +5,7 @@ from pydantic import Field
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "sqlite:///./fairwork.db"
+    database_url: str = "sqlite:///./data/kararai.db"
     
     # JWT Settings
     secret_key: str = "your-secret-key-change-in-production"
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     
     # CORS - handle as comma-separated string
-    allowed_origins_str: str = Field(default="http://localhost:5173,http://localhost:3000", alias="ALLOWED_ORIGINS")
+    allowed_origins_str: str = Field(default="http://localhost:5173,http://localhost:3000,http://karar-ai.vercel.app,https://karar-ai.vercel.app", alias="ALLOWED_ORIGINS")
     
     @property
     def allowed_origins(self) -> List[str]:

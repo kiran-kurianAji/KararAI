@@ -11,7 +11,7 @@ class GeminiAIService:
     """Service for Gemini AI integration for worker assistance."""
     
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         
         # System prompts for different types of assistance
         self.job_recommendation_prompt = """
@@ -59,6 +59,36 @@ class GeminiAIService:
         - Contact information for relevant authorities when needed
         
         Always be supportive and empowering. Help workers understand they have rights and protections.
+        """
+        
+        self.job_analysis_prompt = """
+        You are an AI assistant specialized in personalized job analysis for contract and informal workers in India.
+        Provide CONCISE, focused analysis with key metrics and actionable insights.
+        
+        Format your response as follows (keep each section brief):
+        
+        **🎯 Recommendation:** [Highly Recommended/Recommended/Not Recommended] - [one line reason]
+        
+        **🔧 Skills Match:** [X]% ([X/Y] skills match)
+        • ✅ Matching: [list 2-3 key skills]
+        • ❌ Missing: [list main gaps]
+        
+        **💰 Wage Analysis:** ₹[amount]/[period] 
+        • [X]% of your minimum (₹[your_min])
+        • Fairness: [score]/10 - [Fair/Good/Excellent]
+        
+        **📍 Location:** [distance] from your location
+        • Commute: [Local/Moderate/Long distance]
+        • Cost impact: [Low/Medium/High]
+        
+        **⚠️ Key Concerns:**
+        • [List 2-3 main issues if any]
+        
+        **✅ Next Steps:**
+        • [2-3 specific actionable recommendations]
+        
+        Keep total response under 200 words. Focus on metrics, numbers, and clear recommendations.
+        Use markdown formatting with **bold** for emphasis.
         """
     
     async def get_job_recommendations(self, user_data: Dict[str, Any], chat_message: str) -> str:
@@ -136,10 +166,13 @@ class GeminiAIService:
             """
             
             full_prompt = f"""
-            You are an AI assistant for AI FairWork, a platform helping contract and informal workers in India.
+            You are an AI assistant for AI FairWork, helping contract and informal workers in India.
             
-            You can help with:
-            1. Finding suitable jobs and work opportunities
+            Provide CONCISE, helpful responses (under 150 words) using markdown formatting.
+            Use **bold** for important points, bullet points for lists.
+            
+            You help with:
+            1. Finding jobs and work opportunities
             2. Understanding worker rights and labor laws
             3. Information about government welfare schemes
             4. Work logging and payment tracking guidance
@@ -149,16 +182,16 @@ class GeminiAIService:
             
             Worker's message: {chat_message}
             
-            Provide helpful, encouraging, and practical advice. Be supportive and empowering.
-            If the query is about specific jobs, suggest they use job search features.
-            If it's about rights or laws, provide relevant information for their location.
+            Provide helpful, encouraging, and practical advice. Keep responses concise and friendly.
+            Use markdown formatting like **bold text** and bullet points.
             """
             
             response = self.model.generate_content(full_prompt)
             return response.text
             
         except Exception as e:
-            return "I apologize, but I'm having trouble processing your request right now. Please try again later."
+            print(f"Gemini Error Details: {e}")
+            raise e
     
     async def analyze_contract_terms(self, contract_data: Dict[str, Any], user_data: Dict[str, Any]) -> str:
         """Analyze contract terms and provide worker-friendly explanation."""
@@ -195,6 +228,82 @@ class GeminiAIService:
             
         except Exception as e:
             return "I apologize, but I'm having trouble analyzing the contract right now. Please try again later."
+    
+    async def analyze_job_opportunity(self, job_data: Dict[str, Any], user_data: Dict[str, Any], user_question: str = "") -> str:
+        """Provide comprehensive analysis of a specific job opportunity against user profile."""
+        
+        try:
+            # Extract user profile information
+            user_skills = user_data.get('area_of_expertise', []) + user_data.get('experience', {}).get('skills', [])
+            user_location = user_data.get('location', {})
+            user_preferences = user_data.get('preferences', {})
+            user_experience = user_data.get('experience', {})
+            
+            # Extract job information
+            job_title = job_data.get('title', '')
+            job_description = job_data.get('description', '')
+            required_skills = job_data.get('requirements', {}).get('skills', [])
+            job_payment = job_data.get('payment', {})
+            job_location = job_data.get('workDetails', {}).get('location', {})
+            job_duration = job_data.get('workDetails', {}).get('duration', '')
+            job_hours = job_data.get('workDetails', {}).get('workingHours', '')
+            employer_info = job_data.get('employer', {})
+            fairness_score = job_data.get('fairnessScore', 0)
+            
+            # Calculate skills match
+            matching_skills = []
+            for req_skill in required_skills:
+                for user_skill in user_skills:
+                    if req_skill.lower() in user_skill.lower() or user_skill.lower() in req_skill.lower():
+                        matching_skills.append(req_skill)
+                        break
+            
+            skills_match_percentage = (len(matching_skills) / len(required_skills) * 100) if required_skills else 0
+            
+            analysis_prompt = f"""
+            {self.job_analysis_prompt}
+            
+            **JOB OPPORTUNITY:**
+            - Title: {job_title}
+            - Description: {job_description}
+            - Required Skills: {', '.join(required_skills)}
+            - Payment: ₹{job_payment.get('rate', 0)} per {job_payment.get('rateType', 'day')}
+            - Payment Terms: {job_payment.get('paymentTerms', 'Not specified')}
+            - Duration: {job_duration}
+            - Working Hours: {job_hours}
+            - Location: {job_location.get('address', '')}, {job_location.get('city', '')}, {job_location.get('state', '')}
+            - Employer: {employer_info.get('name', 'Not specified')} (Rating: {employer_info.get('rating', 0)}/5)
+            - Fairness Score: {fairness_score}/10
+            
+            **WORKER PROFILE:**
+            - Name: {user_data.get('name', 'Worker')}
+            - Skills & Expertise: {', '.join(user_skills)}
+            - Experience: {user_experience.get('yearsOfExperience', 0)} years
+            - Previous Jobs: {', '.join(user_experience.get('previousJobs', []))}
+            - Location: {user_location.get('city', '')}, {user_location.get('state', '')}, PIN: {user_location.get('pincode', '')}
+            - Minimum Wage Expectation: ₹{user_preferences.get('minimumWage', 0)}/day
+            - Max Travel Distance: {user_preferences.get('maxTravelDistance', 0)} km
+            - Preferred Working Hours: {', '.join(user_preferences.get('preferredWorkingHours', []))}
+            
+            **CALCULATED METRICS:**
+            - Skills Match: {len(matching_skills)}/{len(required_skills)} skills ({skills_match_percentage:.1f}%)
+            - Matching Skills: {', '.join(matching_skills)}
+            - Missing Skills: {', '.join([skill for skill in required_skills if skill not in matching_skills])}
+            
+            **USER'S SPECIFIC QUESTION:**
+            {user_question if user_question else "Provide a comprehensive analysis of this job opportunity for me."}
+            
+            Please provide a thorough, personalized analysis of this job opportunity specifically for this worker.
+            Consider their skills, location, preferences, experience, and the job requirements.
+            Be honest about both opportunities and concerns.
+            """
+            
+            response = self.model.generate_content(analysis_prompt)
+            return response.text
+            
+        except Exception as e:
+            print(f"Job Analysis Error: {e}")
+            return f"I apologize, but I'm having trouble analyzing this job opportunity right now. Please try again later. Error details: {str(e)}"
 
 # Singleton instance
 gemini_service = GeminiAIService()

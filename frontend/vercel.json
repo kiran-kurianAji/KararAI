@@ -1,0 +1,11 @@
+{
+  "env": {
+    "VITE_API_BASE_URL": "https://vibethon-v1.onrender.com/api/v1"
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

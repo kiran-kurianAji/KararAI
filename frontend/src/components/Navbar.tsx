@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LogOut, User, Home, Menu, X, Briefcase, List, Building2 } from 'lucide-react';
 import { useState } from 'react';
 import type { User as UserType } from '../types';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface NavbarProps {
   user: UserType | null;
@@ -11,15 +12,16 @@ interface NavbarProps {
 const Navbar = ({ user, onLogout }: NavbarProps) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t } = useLanguage();
   
   const isActive = (path: string) => location.pathname === path;
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const sidebarItems = [
-    { path: '/home', label: 'Home', icon: Home },
-    { path: '/active-contracts', label: 'Active Contracts', icon: Briefcase },
-    { path: '/job-listings', label: 'Job Listings', icon: List },
+    { path: '/home', label: t('nav.home'), icon: Home },
+    { path: '/active-contracts', label: t('nav.contracts'), icon: Briefcase },
+    { path: '/job-listings', label: t('nav.jobs'), icon: List },
     { path: '/employer-portal', label: 'Employer Portal', icon: Building2 },
   ];
 
@@ -77,7 +79,7 @@ const Navbar = ({ user, onLogout }: NavbarProps) => {
                 className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-red-700 hover:text-red-800 hover:bg-red-50 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:block">Logout</span>
+                <span className="hidden sm:block">{t('nav.logout')}</span>
               </button>
             </div>
           </div>
