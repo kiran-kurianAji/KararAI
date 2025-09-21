@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     
     # CORS - handle as comma-separated string
-    allowed_origins_str: str = Field(default="http://localhost:5173,http://localhost:3000", alias="ALLOWED_ORIGINS")
+    allowed_origins_str: str = Field(default="http://localhost:5173,http://localhost:3000,http://karar-ai.vercel.app,https://karar-ai.vercel.app", alias="ALLOWED_ORIGINS")
     
     @property
     def allowed_origins(self) -> List[str]:
