@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { locationService } from '../services/i18n';
+import LanguageDetectionNotification from '../components/LanguageDetectionNotification';
 
 interface LanguageContextType {
   currentLanguage: string;
@@ -27,6 +28,11 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const [currentLanguage, setCurrentLanguage] = useState<string>('en');
   const [isDetecting, setIsDetecting] = useState<boolean>(true);
   const [detectedLocation, setDetectedLocation] = useState<string | null>(null);
+  const [showNotification, setShowNotification] = useState<boolean>(false);
+  const [notificationData, setNotificationData] = useState<{
+    language: string;
+    location: string;
+  } | null>(null);
 
   const availableLanguages = [
     { code: 'en', name: 'English', nativeName: 'English' },
@@ -48,6 +54,11 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     localStorage.setItem('selectedLanguage', language);
   };
 
+  const handleCloseNotification = () => {
+    setShowNotification(false);
+    setNotificationData(null);
+  };
+
   useEffect(() => {
     const detectLocationAndLanguage = async () => {
       setIsDetecting(true);
@@ -67,6 +78,14 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
           setDetectedLocation(location.state);
           setCurrentLanguage(location.language);
           i18n.changeLanguage(location.language);
+          
+          // Show notification for auto-detected language
+          setNotificationData({
+            language: location.language,
+            location: location.state
+          });
+          setShowNotification(true);
+          
           console.log(`Language auto-detected: ${location.language} based on location: ${location.state}`);
         } else {
           // Fallback to English if detection fails
@@ -97,6 +116,14 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   return (
     <LanguageContext.Provider value={value}>
       {children}
+      {showNotification && notificationData && (
+        <LanguageDetectionNotification
+          isVisible={showNotification}
+          detectedLanguage={notificationData.language}
+          detectedLocation={notificationData.location}
+          onClose={handleCloseNotification}
+        />
+      )}
     </LanguageContext.Provider>
   );
 };
